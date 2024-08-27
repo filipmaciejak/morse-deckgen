@@ -64,10 +64,19 @@ def load_words_from_file(filename: str) -> dict[str, str]:
     return words
 
 
-def generate_audio(input:str, filename: str) -> None:
+def generate_audio_wav(input: str, filename: str) -> None:
     assert filename.endswith('.wav')
     cmd = ['cwwav', '--output', f'{filename}']
     subprocess.run(cmd, input=bytes(input, 'utf-8'))
+
+
+def generate_audio(input: str, filename: str) -> None:
+    if filename.endswith('.wav'):
+        generate_audio_wav(input, filename)
+        return
+    filename_wav = '.'.join(filename.split('.')[:-1]) + '.wav'
+    generate_audio_wav(input, filename_wav)
+    convert_media_file(filename_wav, filename)
 
 
 def convert_media_file(input_filename: str, output_filename: str) -> None:
@@ -97,10 +106,9 @@ def main():
     with TemporaryDirectory() as dir:
         media_files = []
         for key, value in data.items():
-            filepath = f'{dir}/{key}'
-            generate_audio(value, filepath + '.wav')
-            convert_media_file(filepath + '.wav', filepath + '.' + OUTPUT_MEDIA_FORMAT)
-            media_files.append(filepath + '.' + OUTPUT_MEDIA_FORMAT)
+            filename = f'{dir}/{key}.{OUTPUT_MEDIA_FORMAT}'
+            generate_audio(value, filename)
+            media_files.append(filename)
             note = create_note(key, value, model)
             deck.add_note(note)
         package = Package(deck)
