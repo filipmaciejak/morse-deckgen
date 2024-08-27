@@ -3,6 +3,7 @@
 import random
 import subprocess
 from tempfile import TemporaryDirectory
+from tqdm import tqdm
 
 from genanki import Deck, Model, Note, Package
 
@@ -67,7 +68,7 @@ def load_words_from_file(filename: str) -> dict[str, str]:
 def generate_audio_wav(input: str, filename: str) -> None:
     assert filename.endswith('.wav')
     cmd = ['cwwav', '--output', f'{filename}']
-    subprocess.run(cmd, input=bytes(input, 'utf-8'))
+    subprocess.run(cmd, input=bytes(input, 'utf-8'), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def generate_audio(input: str, filename: str) -> None:
@@ -83,7 +84,7 @@ def convert_media_file(input_filename: str, output_filename: str) -> None:
     if input_filename == output_filename:
         return
     cmd = ['ffmpeg', '-i', input_filename, output_filename]
-    subprocess.run(cmd)
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def create_note(word_id: str, word_text:str, model: Model) -> Note:
@@ -105,7 +106,7 @@ def main():
 
     with TemporaryDirectory() as dir:
         media_files = []
-        for key, value in data.items():
+        for key, value in tqdm(data.items()):
             filename = f'{dir}/{key}.{OUTPUT_MEDIA_FORMAT}'
             generate_audio(value, filename)
             media_files.append(filename)
