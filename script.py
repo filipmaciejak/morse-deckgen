@@ -7,6 +7,7 @@ from genanki import Deck, Model, Note, Package
 
 WORD_FILE_NAME = 'words.txt'
 OUTPUT_FILE_NAME = 'output.apkg'
+OUTPUT_MEDIA_FORMAT = 'mp3'
 
 DECK_ID = random.randrange(1 << 30, 1 << 31)
 DECK_NAME = 'Morse Code'
@@ -54,13 +55,13 @@ CHARDICT = {
 }
 
 
-def load_words(filename: str) -> list[str]:
-    words = []
+def load_words_from_file(filename: str) -> dict[str, str]:
+    words = dict()
     with open(filename) as file:
         for line in file.readlines():
             word = line.strip()
             if len(word) > 1:
-                words.append(word)
+                words['word_' + word] = word
     return words
 
 
@@ -71,34 +72,37 @@ def generate_audio(input:str, filename: str) -> None:
 
 
 def convert_media_file(input_filename: str, output_filename: str) -> None:
+    if input_filename == output_filename:
+        return
     cmd = ['ffmpeg', '-i', input_filename, output_filename]
     subprocess.run(cmd)
 
 
+def create_note(word_id: str, word_text:str, model: Model) -> Note:
+    note = Note(
+        model=model,
+        fields=[word_text, f'[sound:{word_id}.{OUTPUT_MEDIA_FORMAT}]']
+    )
+    return note
+
+
 def main():
-    words = load_words(WORD_FILE_NAME)
-    data = [] # (word id, word text)
-    for c in CHARSET:
-        data.append(('char_' + c, c))
-    for key, value in CHARDICT.items():
-        data.append(('char_' + key, value))
-    for word in words:
-        data.append(('word_' + word, word))
+    data = dict()
+    data.update({'char_' + c: c for c in CHARSET})
+    data.update(CHARDICT)
+    data.update(load_words_from_file(WORD_FILE_NAME))
+
     deck = Deck(*DECK_ARGS)
     model = Model(*MODEL_ARGS, **MODEL_KWARGS)
+
     media_files = []
     subprocess.run(['mkdir', f'{TEMP_DIR}'])
-    for note_data in data:
-        word_id = note_data[0]
-        word_text = note_data[1]
-        filepath = f'{TEMP_DIR}/{word_id}'
-        generate_audio(word_text, filepath + '.wav')
-        convert_media_file(filepath + '.wav', filepath + '.mp3')
-        media_files.append(filepath + '.mp3')
-        note = Note(
-            model=model,
-            fields=[word_text, f'[sound:{word_id}.mp3]']
-        )
+    for key, value in data.items():
+        filepath = f'{TEMP_DIR}/{key}'
+        generate_audio(value, filepath + '.wav')
+        convert_media_file(filepath + '.wav', filepath + '.' + OUTPUT_MEDIA_FORMAT)
+        media_files.append(filepath + '.' + OUTPUT_MEDIA_FORMAT)
+        note = create_note(key, value, model)
         deck.add_note(note)
     package = Package(deck)
     package.media_files = media_files
