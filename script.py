@@ -2,6 +2,7 @@
 
 import random
 import subprocess
+from tempfile import TemporaryDirectory
 
 from genanki import Deck, Model, Note, Package
 
@@ -29,8 +30,6 @@ MODEL_KWARGS = {
         }
     ]
 }
-
-TEMP_DIR = '/tmp/morse-deckgen-data'
 
 CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789'
 
@@ -95,19 +94,18 @@ def main():
     deck = Deck(*DECK_ARGS)
     model = Model(*MODEL_ARGS, **MODEL_KWARGS)
 
-    media_files = []
-    subprocess.run(['mkdir', f'{TEMP_DIR}'])
-    for key, value in data.items():
-        filepath = f'{TEMP_DIR}/{key}'
-        generate_audio(value, filepath + '.wav')
-        convert_media_file(filepath + '.wav', filepath + '.' + OUTPUT_MEDIA_FORMAT)
-        media_files.append(filepath + '.' + OUTPUT_MEDIA_FORMAT)
-        note = create_note(key, value, model)
-        deck.add_note(note)
-    package = Package(deck)
-    package.media_files = media_files
-    package.write_to_file(OUTPUT_FILE_NAME)
-    subprocess.run(['rm', '-rf', f'{TEMP_DIR}'])
+    with TemporaryDirectory() as dir:
+        media_files = []
+        for key, value in data.items():
+            filepath = f'{dir}/{key}'
+            generate_audio(value, filepath + '.wav')
+            convert_media_file(filepath + '.wav', filepath + '.' + OUTPUT_MEDIA_FORMAT)
+            media_files.append(filepath + '.' + OUTPUT_MEDIA_FORMAT)
+            note = create_note(key, value, model)
+            deck.add_note(note)
+        package = Package(deck)
+        package.media_files = media_files
+        package.write_to_file(OUTPUT_FILE_NAME)
 
 
 if __name__ == '__main__':
