@@ -7,6 +7,9 @@ from tqdm import tqdm
 
 from genanki import Deck, Model, Note, Package
 
+from cwwav_wrapper import main as cwwav
+
+
 WORD_FILE_NAME = 'words.txt'
 OUTPUT_FILE_NAME = 'output.apkg'
 OUTPUT_MEDIA_FORMAT = 'mp3'
@@ -67,8 +70,7 @@ def load_words_from_file(filename: str) -> dict[str, str]:
 
 def generate_audio_wav(input: str, filename: str) -> None:
     assert filename.endswith('.wav')
-    cmd = ['cwwav', '--output', f'{filename}']
-    subprocess.run(cmd, input=bytes(input, 'utf-8'), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cwwav(output=filename, input=input)
 
 
 def generate_audio(input: str, filename: str) -> None:
@@ -87,10 +89,10 @@ def convert_media_file(input_filename: str, output_filename: str) -> None:
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def create_note(word_id: str, word_text:str, model: Model) -> Note:
+def create_note(filename: str, word_text:str, model: Model) -> Note:
     note = Note(
         model=model,
-        fields=[word_text, f'[sound:{word_id}.{OUTPUT_MEDIA_FORMAT}]']
+        fields=[word_text, f'[sound:{filename}]']
     )
     return note
 
@@ -107,10 +109,11 @@ def main():
     with TemporaryDirectory() as dir:
         media_files = []
         for key, value in tqdm(data.items()):
-            filename = f'{dir}/{key}.{OUTPUT_MEDIA_FORMAT}'
-            generate_audio(value, filename)
-            media_files.append(filename)
-            note = create_note(key, value, model)
+            filename = f'{key}.{OUTPUT_MEDIA_FORMAT}'
+            filepath = f'{dir}/{filename}'
+            generate_audio(value, filepath)
+            media_files.append(filepath)
+            note = create_note(filename, value, model)
             deck.add_note(note)
         package = Package(deck)
         package.media_files = media_files
